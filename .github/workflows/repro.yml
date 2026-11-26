@@ -67,6 +67,8 @@ jobs:
           echo "rc_repro=$RC"
           echo "asserts_pass=$(grep -c '^PASS' "$SALIDA" || true)"
           echo "asserts_fail=$(grep -c '^FAIL' "$SALIDA" || true)"
+          # Nombres de aserto, no evidencia: dicen QUE invariante no se sostuvo.
+          grep '^FAIL' "$SALIDA" | sed 's/^FAIL  //' | cut -c1-90 || true
           echo "--- lineas no reveladoras (sin evidencia ni locus) ---"
           grep -E '^(no_medido|apta_build|falta|motivo|pid|via de root|blanco|binario|bytes):|^(log|envio|muerto)' "$SALIDA" || true
           # Si el sujeto no construyo, la cola del intento es codigo del sujeto (upstream),

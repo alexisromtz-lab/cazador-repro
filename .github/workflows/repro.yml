@@ -72,8 +72,10 @@ jobs:
           # Si el sujeto no construyo, la cola del intento es codigo del sujeto (upstream),
           # no del payload: publicarla es la unica forma de iterar la receta.
           if grep -q '^apta_build: false' "$SALIDA"; then
-            echo "--- cola del intento de construccion (del sujeto, no del payload) ---"
-            sed -n '/ultimas lineas del intento/,$p' "$SALIDA" | tail -25
+            echo "--- causa que nombra el compilador (sujeto, no payload) ---"
+            sed -n '/causa declarada/,$p' "$SALIDA" | head -8
+            echo "--- final del intento ---"
+            sed -n '/ultimas lineas del intento/,$p' "$SALIDA" | tail -12
           fi
           # Un rc != 0 no es un fallo del workflow: es el resultado de la medicion.
           exit 0

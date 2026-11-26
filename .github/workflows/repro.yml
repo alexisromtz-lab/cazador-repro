@@ -11,6 +11,11 @@ name: repro
 #   - declara COMO se construye el sujeto (receta publica, la misma de jobs/*.sh)
 #   - NO declara el cuerpo del datagrama, ni los assert, ni el locus del fallo
 #   - publica rc_repro y cuantos assert pasaron, nada mas
+#
+# `modo: asan` construye el MISMO sujeto con sanitizador para que una lectura
+# fuera de limites pase de silencio a informe. Del informe se publica la clase y
+# el tamano; el locus va CIFRADO (`recibo_cifrado`), porque el sujeto esta bajo
+# embargo hasta el parche. Sin la clave, esa linea no revela nada.
 on:
   workflow_dispatch:
     inputs:
@@ -18,12 +23,16 @@ on:
         description: "capsula a ejecutar (dynolog-ipc-dos)"
         required: true
         default: dynolog-ipc-dos
+      modo:
+        description: "instrumento: normal | asan"
+        required: true
+        default: normal
 
 permissions:
   contents: read
 
 concurrency:
-  group: repro-${{ github.event.inputs.capsula }}
+  group: repro-${{ github.event.inputs.capsula }}-${{ github.event.inputs.modo }}
   cancel-in-progress: false
 
 jobs:
@@ -32,6 +41,7 @@ jobs:
     timeout-minutes: 60
     env:
       CAPSULA: ${{ github.event.inputs.capsula }}
+      MODO: ${{ github.event.inputs.modo }}
     steps:
       - name: nodo y herramientas
         run: |
@@ -53,11 +63,17 @@ jobs:
           ls -1 "$RUNNER_TEMP/c/jobs"
 
       - name: cruzar la frontera
+        env:
+          RECIBO_CLAVE: ${{ secrets.RECIBO_CLAVE }}
         run: |
           set -uo pipefail
           case "$CAPSULA" in
             dynolog-ipc-dos) GUION="$RUNNER_TEMP/c/jobs/repro_dynolog_ipc.sh" ;;
             *) echo "capsula desconocida: $CAPSULA"; exit 2 ;;
+          esac
+          case "${MODO:-normal}" in
+            asan) export DYNO_SANITIZAR=asan ;;
+            *)    export DYNO_SANITIZAR=ninguno ;;
           esac
           SALIDA="$RUNNER_TEMP/salida.txt"
           set +e
@@ -65,12 +81,25 @@ jobs:
           RC=$?
           set -e
           echo "rc_repro=$RC"
+          echo "modo=${MODO:-normal}"
           echo "asserts_pass=$(grep -c '^PASS' "$SALIDA" || true)"
           echo "asserts_fail=$(grep -c '^FAIL' "$SALIDA" || true)"
           # Nombres de aserto, no evidencia: dicen QUE invariante no se sostuvo.
           grep '^FAIL' "$SALIDA" | sed 's/^FAIL  //' | cut -c1-90 || true
           echo "--- lineas no reveladoras (sin evidencia ni locus) ---"
-          grep -E '^(no_medido|apta_build|falta|motivo|pid|via de root|blanco|binario|bytes):|^(log|sonda|control|muerte_con|rastro)' "$SALIDA" || true
+          grep -E '^(no_medido|no_corrida|no_aplica|apta_build|falta|motivo|pid|via de root|sanitizador|blanco|binario|bytes):|^(log|sonda|control|muerte_con|rastro|asan)' "$SALIDA" || true
+          # El locus no se publica: se cifra. La clave vive en un secreto y no
+          # viaja a este registro, asi que la linea es opaca para quien la lea.
+          R=/tmp/asan_recibo.txt
+          if [ ! -s "$R" ]; then
+            echo "recibo_cifrado: no (esta corrida no produjo informe del sanitizador)"
+          elif [ -z "${RECIBO_CLAVE:-}" ]; then
+            echo "recibo_cifrado: no (falta el secreto RECIBO_CLAVE)"
+          else
+            BLOB=$(openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+                     -pass env:RECIBO_CLAVE -in "$R" -a -A 2>/dev/null || true)
+            echo "recibo_cifrado: ${BLOB:-no (no se pudo cifrar)}"
+          fi
           # Si el sujeto no construyo, la cola del intento es codigo del sujeto (upstream),
           # no del payload: publicarla es la unica forma de iterar la receta.
           if grep -q '^apta_build: false' "$SALIDA"; then

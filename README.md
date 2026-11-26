@@ -12,6 +12,10 @@ commit exacto, sin depender de servidores de nadie y sin publicar el hallazgo an
    `asserts_fail`, más las líneas de estado del sujeto que el reproductor marca con prefijo
    (`apta_build`, `binario`, `blanco`, `pid`, `log`, `no_medido`). Son hechos sobre el
    comportamiento del sujeto, no sobre el hallazgo.
+4. Con `modo=asan` construye **el mismo sujeto** con AddressSanitizer y publica la clase del
+   defecto (`asan_clase`, `asan_operacion`, `asan_bytes`) — no su localización: el informe completo
+   va como `recibo_cifrado`, cifrado con una clave que no está en este repositorio. Sin la clave esa
+   línea es opaca.
 
 ## Qué no hace, y por qué está escrito aquí
 
@@ -24,7 +28,8 @@ commit exacto, sin depender de servidores de nadie y sin publicar el hallazgo an
 ## Cómo se usa
 
 ```bash
-gh workflow run repro.yml -f capsula=dynolog-ipc-dos
+gh workflow run repro.yml -f capsula=dynolog-ipc-dos -f modo=normal
+gh workflow run repro.yml -f capsula=dynolog-ipc-dos -f modo=asan
 gh run watch
 ```
 

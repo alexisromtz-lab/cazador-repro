@@ -68,6 +68,6 @@ jobs:
           echo "asserts_pass=$(grep -c '^PASS' "$SALIDA" || true)"
           echo "asserts_fail=$(grep -c '^FAIL' "$SALIDA" || true)"
           echo "--- lineas no reveladoras (sin evidencia ni locus) ---"
-          grep -E '^(no_medido|apta_build):' "$SALIDA" || true
+          grep -E '^(no_medido|apta_build|falta|motivo):' "$SALIDA" || true
           # Un rc != 0 no es un fallo del workflow: es el resultado de la medicion.
           exit 0

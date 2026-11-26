@@ -1,0 +1,73 @@
+name: repro
+
+# Nodo Linux efimero para reproducir una capsula de seguridad sobre un sujeto OSS.
+#
+# Por que existe: la cuenta no tiene minutos de Actions en repositorios privados
+# (medido 25-Nov-2026: el job no arranca, 0 pasos). Los repositorios publicos no
+# consumen esos minutos. Lo que NO puede ser publico es el payload: por eso el
+# trabajo entra por secretos y la salida publica es un codigo de retorno.
+#
+# Lo que este archivo declara y lo que no:
+#   - declara COMO se construye el sujeto (receta publica, la misma de jobs/*.sh)
+#   - NO declara el cuerpo del datagrama, ni los assert, ni el locus del fallo
+#   - publica rc_repro y cuantos assert pasaron, nada mas
+on:
+  workflow_dispatch:
+    inputs:
+      capsula:
+        description: "capsula a ejecutar (dynolog-ipc-dos)"
+        required: true
+        default: dynolog-ipc-dos
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repro-${{ github.event.inputs.capsula }}
+  cancel-in-progress: false
+
+jobs:
+  correr:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CAPSULA: ${{ github.event.inputs.capsula }}
+    steps:
+      - name: nodo y herramientas
+        run: |
+          uname -srm
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake g++ make python3
+          cmake --version | head -1
+          g++ --version | head -1
+
+      - name: materializar la capsula desde el secreto
+        env:
+          PAQUETE_B64: ${{ secrets.CAPSULA_TGZ_B64 }}
+        run: |
+          set -euo pipefail
+          [ -n "${PAQUETE_B64:-}" ] || { echo "sin paquete: el secreto CAPSULA_TGZ_B64 no esta puesto"; exit 1; }
+          umask 077
+          mkdir -p "$RUNNER_TEMP/c"
+          printf '%s' "$PAQUETE_B64" | base64 -d | tar -xzf - -C "$RUNNER_TEMP/c"
+          ls -1 "$RUNNER_TEMP/c/jobs"
+
+      - name: cruzar la frontera
+        run: |
+          set -uo pipefail
+          case "$CAPSULA" in
+            dynolog-ipc-dos) GUION="$RUNNER_TEMP/c/jobs/repro_dynolog_ipc.sh" ;;
+            *) echo "capsula desconocida: $CAPSULA"; exit 2 ;;
+          esac
+          SALIDA="$RUNNER_TEMP/salida.txt"
+          set +e
+          bash "$GUION" > "$SALIDA" 2>&1
+          RC=$?
+          set -e
+          echo "rc_repro=$RC"
+          echo "asserts_pass=$(grep -c '^PASS' "$SALIDA" || true)"
+          echo "asserts_fail=$(grep -c '^FAIL' "$SALIDA" || true)"
+          echo "--- lineas no reveladoras (sin evidencia ni locus) ---"
+          grep -E '^(no_medido|apta_build):' "$SALIDA" || true
+          # Un rc != 0 no es un fallo del workflow: es el resultado de la medicion.
+          exit 0

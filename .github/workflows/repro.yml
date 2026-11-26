@@ -69,5 +69,11 @@ jobs:
           echo "asserts_fail=$(grep -c '^FAIL' "$SALIDA" || true)"
           echo "--- lineas no reveladoras (sin evidencia ni locus) ---"
           grep -E '^(no_medido|apta_build|falta|motivo):' "$SALIDA" || true
+          # Si el sujeto no construyo, la cola del intento es codigo del sujeto (upstream),
+          # no del payload: publicarla es la unica forma de iterar la receta.
+          if grep -q '^apta_build: false' "$SALIDA"; then
+            echo "--- cola del intento de construccion (del sujeto, no del payload) ---"
+            sed -n '/ultimas lineas del intento/,$p' "$SALIDA" | head -30
+          fi
           # Un rc != 0 no es un fallo del workflow: es el resultado de la medicion.
           exit 0

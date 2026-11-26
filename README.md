@@ -9,7 +9,9 @@ commit exacto, sin depender de servidores de nadie y sin publicar el hallazgo an
 2. Materializa desde un secreto (`CAPSULA_TGZ_B64`) los guiones de la cápsula: la receta de
    construcción del sujeto y el reproductor.
 3. Ejecuta el reproductor y publica en el registro **tres números**: `rc_repro`, `asserts_pass`,
-   `asserts_fail`.
+   `asserts_fail`, más las líneas de estado del sujeto que el reproductor marca con prefijo
+   (`apta_build`, `binario`, `blanco`, `pid`, `log`, `no_medido`). Son hechos sobre el
+   comportamiento del sujeto, no sobre el hallazgo.
 
 ## Qué no hace, y por qué está escrito aquí
 

@@ -68,7 +68,7 @@ jobs:
           echo "asserts_pass=$(grep -c '^PASS' "$SALIDA" || true)"
           echo "asserts_fail=$(grep -c '^FAIL' "$SALIDA" || true)"
           echo "--- lineas no reveladoras (sin evidencia ni locus) ---"
-          grep -E '^(no_medido|apta_build|falta|motivo):' "$SALIDA" || true
+          grep -E '^(no_medido|apta_build|falta|motivo|pid|log|via de root|blanco|binario|bytes):' "$SALIDA" || true
           # Si el sujeto no construyo, la cola del intento es codigo del sujeto (upstream),
           # no del payload: publicarla es la unica forma de iterar la receta.
           if grep -q '^apta_build: false' "$SALIDA"; then
